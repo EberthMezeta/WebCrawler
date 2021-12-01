@@ -5,6 +5,7 @@ import time
 import traceback
 from datetime import datetime
 import os
+import json
 
 import nltk
 import pysolr
@@ -19,21 +20,28 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.openapi.models import Response
 
+class URL(BaseModel):
+    url:str
+
 run_interval = .5 #seconds
 solr_host = os.getenv("SOLR_HOST", "host.docker.internal")
+synonym_api = os.getenv("SOLR_HOST", "host.docker.internal")
+synonym_updater = os.getenv("SOLR_HOST", "host.docker.internal")
+
 solr = pysolr.Solr(f'http://{solr_host}:8983/solr/mycore/', always_commit=True)
 crawler_queue = queue.Queue()
 app = FastAPI(docs_url="/")
 
 @app.post("/queue_document")
-async def add_synonym_to_queue(url:str):
+async def add_synonym_to_queue(url:URL):
     try:
-        crawler_queue.put(url)
+        crawler_queue.put(url.url)
         return Response(status_code=201)
     except:
         return []
     
 def crawler(url):
+    print(f"crawling {url}")
     #Request HTML
     page = requests.get(url)
     #Get HTML content
@@ -93,12 +101,27 @@ def getLinks(links = []):
     print(childrenLinks)       
     return childrenLinks
  
+def updateSynonyms(word):
+    try:
+        print("processing synonyms for "+ word)
+        synonyms = requests.get(f"http://{synonym_api}:8091/spa?word={word}").json()
+        synonyms.append(word) #in case the synonyms didn't return it 
+        if len(synonyms) > 1:
+            update_response = requests.post(f"http://{synonym_updater}:8092/update", data=json.dumps(synonyms))
+            update_response.raise_for_status()
+    except:
+        print('error updating synonyms for ' + word)
+
 def getDocument(soup,url):
     #Process text.
     #Remove tags, ccs,Javascript.
     text = soup.get_text()   
     #Get Tokens
     tokens = getTokenz(text)
+
+    for token in tokens:
+        updateSynonyms(token)
+
     #Get text preprocess
     textUnWhiteSPace = " ".join(re.split(r"\s+", text))
     #Get size
