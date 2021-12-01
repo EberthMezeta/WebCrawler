@@ -103,10 +103,11 @@ def getLinks(links = []):
  
 def updateSynonyms(word):
     try:
-        print("processing synonyms for "+ word)
+        #print("processing synonyms for "+ word)
         synonyms = requests.get(f"http://{synonym_api}:8091/spa?word={word}").json()
         synonyms.append(word) #in case the synonyms didn't return it 
-        if len(synonyms) > 1:
+        if len(set(synonyms)) > 1:
+            print("sending synonym list "+ json.dumps(synonyms))
             update_response = requests.post(f"http://{synonym_updater}:8092/update", data=json.dumps(synonyms))
             update_response.raise_for_status()
     except:
