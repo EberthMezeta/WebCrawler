@@ -20,7 +20,8 @@ from pydantic import BaseModel
 from fastapi.openapi.models import Response
 
 run_interval = .5 #seconds
-solr = pysolr.Solr('http://localhost:8983/solr/mycore/', always_commit=True)
+solr_host = os.getenv("SOLR_HOST", "host.docker.internal")
+solr = pysolr.Solr(f'http://{solr_host}:8983/solr/mycore/', always_commit=True)
 crawler_queue = queue.Queue()
 app = FastAPI(docs_url="/")
 
